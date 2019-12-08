@@ -20,6 +20,7 @@ const (
 	BallSize = 10 //px
 	BallVelocity = 1 //px/s movement speed
 	TextSize = 12 //px
+	Debug = false //true or false, display more info
 )
 
 const (
@@ -169,7 +170,9 @@ fn (g mut Game) draw_scene() {
 	g.draw_paddle()
 	//g.draw_field()
 	g.draw_ui()
-	g.draw_debug()
+	if(Debug){
+		g.draw_debug()
+	}
 }
 
 fn (g &Game) draw_ball() {
