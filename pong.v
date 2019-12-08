@@ -1,5 +1,6 @@
 module main
 
+import math
 import time
 import gx
 //import gl
@@ -8,15 +9,15 @@ import glfw
 import freetype
 
 const (
-	Width = 1000 //px windows
+	Width = 800 //px windows
 	Height = 500 //px window
 	PaddleHeight = 10 //px
-	PaddleWidth = 40 //px
-	PaddleSpeedComputer = 4 //px/s
+	PaddleWidth = 50 //px
+	PaddleSpeedComputer = 5 //px/s
 	PaddleSpeed = 5 //px/s
 	PaddlePadding = 20 //px from top/bottom
 	TickSpeed = 10 //ms refresh rate
-	BallSize = 25 //px
+	BallSize = 10 //px
 	BallVelocity = 1 //px/s movement speed
 	TextSize = 12 //px
 )
@@ -36,7 +37,7 @@ const (
 
 const (
 	BackgroundColor = gx.Black
-	UIColor = gx.Purple
+	UIColor = gx.Green
 	PaddleColor = gx.Green
 )
 
@@ -44,21 +45,23 @@ struct PaddleComputer {
 mut:
     x int
     score int
+	dx f32
 }
 
 struct PaddlePlayer {
 mut:
     x int
     score int
+	dx int
 }
 
 struct Ball {
 mut:
-	x int
-	y int
-	dx int
-	dy int
-	speed int
+	x f32
+	y f32
+	dx f32
+	dy f32
+	speed f32
 	collided bool
 }
 
@@ -120,36 +123,43 @@ fn main() {
 fn (g mut Game) init_game() {
 	println('Init game...')
 	//mut ball := &Ball{
+	g.player = PaddlePlayer{
+		x: g.width/2
+		dx: 0
+	}
+	g.computer = PaddleComputer{
+		x: g.width/2
+		dx: 0
+	}
 	g.ball = Ball{
 		//x: g.width / 2
 		//y: g.height / 2
-		x: (g.player.x + ((PaddleWidth+BallSize) / 2))
-		y: (g.height - PaddlePadding - PaddleHeight)
-		dx: BallVelocity
-		dy: -BallVelocity
+		x: (g.player.x + ((PaddleWidth/2)-(BallSize / 2)))
+		y: (g.height - PaddlePadding - PaddleHeight - BallSize)
+		//dx: BallVelocity
+		//dy: -BallVelocity
+		dx: 0
+		dy: 0
+		speed: BallVelocity
 		collided: false
-	}
-	g.player = PaddlePlayer{
-		x: 10
-	}
-	g.computer = PaddleComputer{
-		x: 10
 	}
 }
 
 fn (g mut Game) reset() {
 	println('Reset ball...')
+	g.computer.x = g.width / 2
+	g.computer.dx = 0
+	g.player.x = g.width / 2
+	g.player.dx = 0
 	g.ball = Ball{
 		//x: g.width / 2
 		//y: g.height / 2
-		x: (g.player.x + ((PaddleWidth+BallSize) / 2))
-		y: (g.height - PaddlePadding - PaddleHeight)
-		dx: BallVelocity
-		dy: -BallVelocity
+		x: (g.player.x + ((PaddleWidth/2)-(BallSize / 2)))
+		y: (g.height - PaddlePadding - PaddleHeight - BallSize)
+		dx: 0
+		dy: 0
+		speed: BallVelocity
 		collided: false
-	}
-	g.computer = PaddleComputer{
-		x: 10
 	}
 }
 
@@ -158,13 +168,13 @@ fn (g mut Game) draw_scene() {
 	g.draw_ball()
 	g.draw_paddle()
 	//g.draw_field()
-	//g.draw_ui()
+	g.draw_ui()
 	g.draw_debug()
 }
 
 fn (g &Game) draw_ball() {
 		color := UIColor
-		g.gg.draw_rect(g.ball.x, g.ball.y,
+		g.gg.draw_rect(int(g.ball.x), int(g.ball.y),
 			BallSize, BallSize, color)
 }
 
@@ -178,6 +188,7 @@ fn (g &Game) draw_paddle() {
 
 fn (g mut Game) run() {
 	for {
+		g.move_player()
 		g.move_computer()
 		g.check_ball_collision()
 		g.move_ball()
@@ -196,7 +207,10 @@ fn (g mut Game) move_ball() {
 		//if g.ball.collided || g.ball.y >= (g.height - PaddlePadding){//TODO remove or when player added
 		if g.ball.collided{
 			println('ball bounce paddle')
-			g.ball.dy = - g.ball.dy
+			g.ball.speed *= 1.1
+			g.ball.dx *= 1.1
+			g.ball.dy *= 1.1
+			g.ball.dy = -g.ball.dy
 			g.ball.collided = false
 		}
 		//TODO else score
@@ -223,21 +237,39 @@ fn (g mut Game) move_ball() {
 
 fn (g mut Game) move_computer() {
 	ball := g.ball
+	if(ball.dx == 0) {return}
+	fakecenter := g.computer.x + PaddleWidth/2 - BallSize/2
 	//TODO target center of ball with center of target
 	//if ball further left move left
-	if ball.x < g.computer.x {
-		g.computer.x -= PaddleSpeedComputer
+	if ball.x < fakecenter {
+		g.computer.dx = f32(math.max(g.ball.speed * -1.5, f32(-PaddleSpeedComputer)))
 	}
 	//if ball further right move right
-	else if ball.x > g.computer.x {
-		g.computer.x += PaddleSpeedComputer
+	else if ball.x > fakecenter {
+		g.computer.dx = f32(math.min(g.ball.speed * 1.5, f32(PaddleSpeedComputer)))
+	} else{
+		//g.computer.dx = 0//TODO check this, makes paddle lag
 	}
-	if(g.computer.x < 0){
-		 g.computer.x = 0
+	if((g.computer.x + int(g.computer.dx)) < 0){
+		g.computer.dx = 0
 	}
-	if(g.computer.x > (g.width - PaddleWidth)){
-		g.computer.x = (g.width - PaddleWidth)
+	if((g.computer.x + int(g.computer.dx)) > (g.width - PaddleWidth)){
+		g.computer.dx = 0
 	}
+	g.computer.x += int(g.computer.dx)
+}
+
+fn (g mut Game) move_player() {
+	if((g.player.x + g.player.dx) < 0){
+		g.player.dx = 0
+	}
+	if((g.player.x + g.player.dx) > (g.width - PaddleWidth)){
+		g.player.dx = 0
+	}
+	if(g.ball.dy == 0){//TODO clean this up, temp to move ball when paused
+		g.ball.dx = g.player.dx
+	}
+	g.player.x += int(g.player.dx)
 }
 
 fn (g mut Game) check_ball_collision() {
@@ -266,44 +298,55 @@ fn (g mut Game) check_ball_collision() {
 
 fn (g mut Game) draw_debug() {
 	if g.font_loaded {
-		g.ft.draw_text((g.ball.x + BallSize), (g.ball.y + BallSize), '$g.ball.x $g.ball.y', text_cfg)
-		g.ft.draw_text(5, 5, 'Score: $g.computer.score', text_cfg)
+		g.ft.draw_text(int(g.ball.x + BallSize), int(g.ball.y + BallSize), '$g.ball.x $g.ball.y', text_cfg)
 		g.ft.draw_text(5, 2 + 5 + TextSize, '$g.computer.x', text_cfg)
+		g.ft.draw_text(5, 2 + 2 + 5 + TextSize * 2, 'Computer dx: $g.computer.dx', text_cfg)
 		mut text := ''
 		if(g.ball.dy < 0){ text = 'Moving up'}
 		else {text = 'Moving down'}
 		g.ft.draw_text(5, 5 + TextSize * 3, text, text_cfg)
 		g.ft.draw_text(5, 5 + TextSize * 4, 'Collided: $g.ball.collided', text_cfg)
-		g.ft.draw_text(5, g.height - 5 - TextSize, 'Score: $g.player.score', text_cfg)
+		g.ft.draw_text(5, 5 + TextSize * 5, 'Player dx: $g.player.dx', text_cfg)
 		g.ft.draw_text(5, g.height - 2 - 5 - TextSize - TextSize, '$g.player.x', text_cfg)
+	}
+}
+
+fn (g mut Game) draw_ui() {
+	if g.font_loaded {
+		g.ft.draw_text(5, 2, 'Score: $g.computer.score', text_cfg)
+		g.ft.draw_text(5, g.height - 2 - TextSize, 'Score: $g.player.score', text_cfg)
 	}
 }
 
 // TODO: this exposes the unsafe C interface, clean up
 fn key_down(wnd voidptr, key, code, action, mods int) {
-	println(action.str())
-	if action != 2 && action != 1 {
+	//0 keyup 1 keydown 2 keyhold
+	if action == 2 {
 		return
 	}
 	// Fetch the game object stored in the user pointer
 	mut game := &Game(glfw.get_window_user_pointer(wnd))
 	// global keys
-	//match key {
-	//	glfw.KEY_ESCAPE {
-	//		glfw.set_should_close(wnd, true)
-	//	}
-	//	glfw.key_space {
-	//		if game.state == .running {
-	//			game.state = .paused
-	//		} else if game.state == .paused {
-	//			game.state = .running
-	//		} else if game.state == .gameover {
-	//			game.init_game()
-	//			game.state = .running
-	//		}
-	//	}
-	//	else {}
-	//}
+	match key {
+		//glfw.KEY_ESCAPE {
+		//	glfw.set_should_close(wnd, true)
+		//}
+		glfw.key_space {
+			//if game.state == .running {
+			//	game.state = .paused
+			//} else if game.state == .paused {
+			//	game.state = .running
+			//} else if game.state == .gameover {
+			//	game.init_game()
+			//	game.state = .running
+			//}
+			if(action == 0 && game.ball.dy == 0){
+				game.ball.dx = BallVelocity
+				game.ball.dy = -BallVelocity
+			}
+		}
+		else {}
+	}
 
 	//if game.state != .running {
 	//	return
@@ -311,23 +354,21 @@ fn key_down(wnd voidptr, key, code, action, mods int) {
 	// keys while game is running
 	match key {
 	glfw.KeyLeft {
-		game.move_right(-PaddleSpeed)
+		if(action == 0){
+			game.player.dx = 0
+		}
+		if(action == 1){
+			game.player.dx = -PaddleSpeed
+		}
 	}
 	glfw.KeyRight {
-		game.move_right(PaddleSpeed)
+		if(action == 0){
+			game.player.dx = 0
+		}
+		if(action == 1){
+			game.player.dx = PaddleSpeed
+		}
 	}
 	else { }
 	}
-}
-
-fn (g mut Game) move_right(dx int) bool {
-	g.player.x += dx
-	
-	if(g.player.x < 0){
-		 g.player.x = 0
-	}
-	if(g.player.x > (g.width - PaddleWidth)){
-		g.player.x = (g.width - PaddleWidth)
-	}
-	return true
 }
