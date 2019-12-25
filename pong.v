@@ -240,13 +240,13 @@ fn (g mut Game) move_ball() {
 	}
 	if(g.ball.y > (g.height - BallSize)){
 		//Computer scored
-		g.computer.score += 1
+		g.computer.score ++
 		g.reset()
 		return
 	}
 	if(g.ball.y < BallSize){
 		//Player scored
-		g.player.score += 1
+		g.player.score ++
 		g.reset()
 		return
 	}
