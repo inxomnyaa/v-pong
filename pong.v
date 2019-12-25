@@ -1,5 +1,6 @@
 module main
 
+import os
 import math
 import time
 import gx
@@ -7,6 +8,7 @@ import gx
 import gg
 import glfw
 import freetype
+import miniaudio as ma
 
 const (
 	Width = 800 //px windows
@@ -21,6 +23,10 @@ const (
 	BallVelocity = 1 //px/s movement speed
 	TextSize = 12 //px
 	Debug = false //true or false, display more info
+)
+
+const (
+	wav_boop_paddle = './resources/sounds/boop_paddle.wav'
 )
 
 const (
@@ -81,7 +87,9 @@ mut:
 }
 
 fn main() {
+	os.clear()
 	glfw.init_glfw()
+	//init game
 	mut game := &Game{
 		gg: gg.new_context(gg.Cfg {
 			width: Width
@@ -144,6 +152,14 @@ fn (g mut Game) init_game() {
 		speed: BallVelocity
 		collided: false
 	}
+	//load sounds
+	println('Load sounds...')
+	println(wav_boop_paddle)
+	mut sound_beep := ma.from(wav_boop_paddle)
+	println('Loaded wav,length '+sound_beep.length().str())
+	sound_beep.play()
+	time.sleep_ms(int(sound_beep.length()))
+	sound_beep.free()
 }
 
 fn (g mut Game) reset() {
