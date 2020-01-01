@@ -27,6 +27,13 @@ const (
 
 const (
 	wav_boop_paddle = './resources/sounds/boop_paddle.wav'
+	wav_boop_wall = './resources/sounds/boop_wall.wav'
+	wav_click = './resources/sounds/click.wav'
+	wav_destroyed = './resources/sounds/destroyed.wav'
+	wav_enter = './resources/sounds/enter.wav'
+	wav_error = './resources/sounds/error.wav'
+	wav_launch = './resources/sounds/launch.wav'
+	wav_score_point = './resources/sounds/score_point.wav'
 )
 
 const (
@@ -79,11 +86,24 @@ mut:
 	ball Ball
 	player PaddlePlayer
 	computer PaddleComputer
+	sounds Sounds
 	// gg context for drawing
 	gg          &gg.GG
 	// ft context for font drawing
 	ft          &freetype.FreeType
 	font_loaded bool
+}
+
+struct Sounds {
+mut:
+	boop_paddle miniaudio.MiniAudio
+	boop_wall miniaudio.MiniAudio
+	click miniaudio.MiniAudio
+	destroyed miniaudio.MiniAudio
+	enter miniaudio.MiniAudio
+	error miniaudio.MiniAudio
+	launch miniaudio.MiniAudio
+	score_point miniaudio.MiniAudio
 }
 
 fn main() {
@@ -105,6 +125,8 @@ fn main() {
 	}
 	game.gg.window.set_user_ptr(game) // TODO remove this when `window_user_ptr:` works
 	game.init_game()
+	game.sounds = Sounds{}
+	game.sounds.init_sounds()
 	println('Starting the game loop...')
 	game.gg.window.onkeydown(key_down)
 	go game.run() // Run the game loop in a new thread
@@ -152,14 +174,20 @@ fn (g mut Game) init_game() {
 		speed: BallVelocity
 		collided: false
 	}
+}
+
+fn (sound mut Sounds) init_sounds() {
 	//load sounds
 	println('Load sounds...')
-	println(wav_boop_paddle)
-	mut sound_beep := ma.from(wav_boop_paddle)
-	println('Loaded wav,length '+sound_beep.length().str())
-	sound_beep.play()
-	time.sleep_ms(int(sound_beep.length()))
-	sound_beep.free()
+	sound.boop_paddle = ma.from(wav_boop_paddle)
+	sound.boop_wall = ma.from(wav_boop_wall)
+	sound.click = ma.from(wav_click)
+	sound.destroyed = ma.from(wav_destroyed)
+	sound.enter = ma.from(wav_enter)
+	sound.error = ma.from(wav_error)
+	sound.launch = ma.from(wav_launch)
+	sound.score_point = ma.from(wav_score_point)
+	//sound_beep.free()
 }
 
 fn (g mut Game) reset() {
@@ -225,6 +253,7 @@ fn (g mut Game) move_ball() {
 	//if g.ball.y >= g.height - Height || g.ball.y <= 0 {
 		//if g.ball.collided || g.ball.y >= (g.height - PaddlePadding){//TODO remove or when player added
 		if g.ball.collided{
+			g.sounds.boop_paddle.play()
 			println('ball bounce paddle')
 			g.ball.speed *= 1.1
 			g.ball.dx *= 1.1
@@ -237,16 +266,19 @@ fn (g mut Game) move_ball() {
 	//bounce from side walls
 	if g.ball.x >= g.width - BallSize || g.ball.x <= 0 {
 		g.ball.dx = - g.ball.dx
+		g.sounds.boop_wall.play()
 	}
 	if(g.ball.y > (g.height - BallSize)){
 		//Computer scored
 		g.computer.score ++
+		g.sounds.destroyed.play()
 		g.reset()
 		return
 	}
 	if(g.ball.y < BallSize){
 		//Player scored
 		g.player.score ++
+		g.sounds.score_point.play()
 		g.reset()
 		return
 	}
@@ -258,7 +290,7 @@ fn (g mut Game) move_computer() {
 	ball := g.ball
 	if(ball.dx == 0) {return}
 	fakecenter := g.computer.x + PaddleWidth/2 - BallSize/2
-	//TODO target center of ball with center of target
+	//TODO target center of ball with center of target (done?)
 	//if ball further left move left
 	if ball.x < fakecenter {
 		g.computer.dx = f32(math.max(g.ball.speed * -1.5, f32(-PaddleSpeedComputer)))
@@ -360,6 +392,7 @@ fn key_down(wnd voidptr, key, code, action, mods int) {
 			//	game.state = .running
 			//}
 			if(action == 0 && game.ball.dy == 0){
+				game.sounds.launch.play()
 				game.ball.dx = BallVelocity
 				game.ball.dy = -BallVelocity
 			}
